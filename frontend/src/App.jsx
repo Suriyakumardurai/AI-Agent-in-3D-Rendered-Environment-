@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Environment, useGLTF } from '@react-three/drei'
-import * as THREE from 'three' // Import THREE for raycasting
+import * as THREE from 'three'
 
 // Ground Plane
 function Ground() {
@@ -14,77 +14,89 @@ function Ground() {
 }
 
 // Tree model
-function Tree({ position, onClick }) {
-  const { scene } = useGLTF('/models/tree.glb') // assuming path is correct now
+function Tree({ position }) {
+  const { scene } = useGLTF('/models/tree.glb')
   return (
-    <group position={position} onClick={onClick} scale={[0.03,0.03,0.03]}>
+    <group position={position} scale={[0.03, 0.03, 0.03]}>
       <primitive object={scene} />
     </group>
   )
 }
 
-
-// Building Model
-function Building({ position, onClick }) {
-  const { scene } = useGLTF('/models/building.glb') // Adjust the path if needed
-
+// Building model
+function Building({ position }) {
+  const { scene } = useGLTF('/models/building.glb')
   return (
-    <group position={position} onClick={onClick} scale={[0.1,0.1,0.1]}>
+    <group position={position} scale={[0.1, 0.1, 0.1]}>
       <primitive object={scene} />
     </group>
   )
 }
 
-
-// Agent Model
-function Agent({ position, onClick }) {
-  const { scene } = useGLTF('/models/robot.glb') // Adjust path if needed
-
+// Agent model
+function Agent({ position }) {
+  const { scene } = useGLTF('/models/robot.glb')
   return (
-    <group position={position} onClick={onClick} scale={[0.2, 0.2, 0.2]}>
+    <group position={position} scale={[0.2, 0.2, 0.2]}>
       <primitive object={scene} />
     </group>
   )
 }
 
+// Component to handle click + camera focus
+function ClickToFocus() {
+  const { camera, gl, scene } = useThree()
+  const controls = useRef()
+  const raycaster = new THREE.Raycaster()
+  const mouse = new THREE.Vector2()
+
+  useEffect(() => {
+    function onDoubleClick(event) {
+      const rect = gl.domElement.getBoundingClientRect()
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+      raycaster.setFromCamera(mouse, camera)
+      const intersects = raycaster.intersectObjects(scene.children, true)
+
+      if (intersects.length > 0) {
+        const point = intersects[0].point
+        controls.current.target.copy(point)
+        controls.current.update()
+      }
+    }
+
+    gl.domElement.addEventListener('dblclick', onDoubleClick)
+    return () => gl.domElement.removeEventListener('dblclick', onDoubleClick)
+  }, [camera, gl, scene])
+
+  return <OrbitControls ref={controls} enableZoom enableRotate />
+}
 
 export default function App() {
-  const cameraRef = useRef()
-  const controlsRef = useRef()
-  const [focusPoint, setFocusPoint] = useState([0, 1, 0]) // Default focus in the center
-
-  // Function to handle focus when an object is clicked
-  const handleFocus = (position) => {
-    setFocusPoint(position)
-  }
-
   return (
     <Canvas
       shadows
       camera={{ position: [5, 5, 5], fov: 60 }}
-      ref={cameraRef}
     >
       <ambientLight intensity={0.3} />
       <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-      <OrbitControls ref={controlsRef} enableZoom={true} enableRotate={true} />
       <Environment preset="sunset" />
-      
-      {/* Ground */}
+      <ClickToFocus />
       <Ground />
 
       {/* Trees */}
-      <Tree position={[-10, 0, -5]} onClick={() => handleFocus([-10, 0, -5])} />
-      <Tree position={[-5, 0, -10]} onClick={() => handleFocus([-5, 0, -10])} />
-      <Tree position={[0, 0, -15]} onClick={() => handleFocus([0, 0, -15])} />
-      <Tree position={[5, 0, -5]} onClick={() => handleFocus([5, 0, -5])} />
-      <Tree position={[10, 0, -10]} onClick={() => handleFocus([10, 0, -10])} />
-      <Tree position={[15, 0, -5]} onClick={() => handleFocus([15, 0, -5])} />
-     	
+      <Tree position={[-10, 0, -5]} />
+      <Tree position={[-5, 0, -10]} />
+      <Tree position={[0, 0, -15]} />
+      <Tree position={[5, 0, -5]} />
+      <Tree position={[10, 0, -10]} />
+      <Tree position={[15, 0, -5]} />
 
       {/* Buildings */}
-      <Building position={[-15, 0, -15]} onClick={() => handleFocus([-15, 0, -15])} />
-      <Building position={[10, 0, 5]} onClick={() => handleFocus([10, 0, 5])} />
-      <Building position={[0, 0, 12]} onClick={() => handleFocus([0, 0, 12])} />
+      <Building position={[-15, 0, -15]} />
+      <Building position={[10, 0, 5]} />
+      <Building position={[0, 0, 12]} />
 
       {/* Agents */}
       <Agent position={[0, 0, 0]} />
@@ -92,4 +104,3 @@ export default function App() {
     </Canvas>
   )
 }
-
